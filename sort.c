@@ -2,28 +2,40 @@
 #include <stdlib.h>
 #include <mpi.h>
 
-/* Comparator function for qsort */
-int compare(const void *a, const void *b)
+
+void bubbleSort(int *arr, int n)
 {
-    return (*(int *)a - *(int *)b);
+    int temp;
+    for (int i = 0; i < n - 1; i++)
+    {
+        for (int j = 0; j < n - i - 1; j++)
+        {
+            if (arr[j] > arr[j + 1])
+            {
+                temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
 {
     int rank, size;
     int n;
-    int *marks = NULL; // Full array (root)
-    int *sub_marks;    // Local array
+    int *marks = NULL;
+    int *sub_marks;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // Enforce exactly 3 processes
+
     if (size != 3)
     {
         if (rank == 0)
-            printf("Error: This program must be run with exactly 3 processes.\n");
+            printf("Error: Run with exactly 3 processes.\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
@@ -38,13 +50,14 @@ int main(int argc, char *argv[])
             scanf("%d", &marks[i]);
     }
 
-    // Broadcast n to all processes
+
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // Determine counts and displacements for Scatterv
+
     int counts[3], displs[3];
     int base = n / 3;
     int rem = n % 3;
+
     for (int i = 0; i < 3; i++)
         counts[i] = base + (i < rem ? 1 : 0);
 
@@ -54,36 +67,42 @@ int main(int argc, char *argv[])
 
     sub_marks = (int *)malloc(counts[rank] * sizeof(int));
 
-    // Scatter data
+
     MPI_Scatterv(marks, counts, displs, MPI_INT,
                  sub_marks, counts[rank], MPI_INT,
                  0, MPI_COMM_WORLD);
 
-    // Show what each process received
+
     printf("Process %d received: ", rank);
     for (int i = 0; i < counts[rank]; i++)
         printf("%d ", sub_marks[i]);
     printf("\n");
 
-    // Local sort
-    qsort(sub_marks, counts[rank], sizeof(int), compare);
 
-    // Show local sorted array
+    bubbleSort(sub_marks, counts[rank]);
+
     printf("Process %d after local sort: ", rank);
     for (int i = 0; i < counts[rank]; i++)
         printf("%d ", sub_marks[i]);
     printf("\n");
 
-    // Gather sorted subarrays
+
     MPI_Gatherv(sub_marks, counts[rank], MPI_INT,
                 marks, counts, displs, MPI_INT,
                 0, MPI_COMM_WORLD);
 
-    // Final sort at root
+
     if (rank == 0)
     {
-        qsort(marks, n, sizeof(int), compare);
-        printf("\nFinal sorted array at root:\n");
+        printf("\nGathered array at root (processor-wise):\n");
+        for (int i = 0; i < n; i++)
+            printf("%d ", marks[i]);
+        printf("\n");
+
+
+        bubbleSort(marks, n);
+
+        printf("\nFinal globally sorted array:\n");
         for (int i = 0; i < n; i++)
             printf("%d ", marks[i]);
         printf("\n");
