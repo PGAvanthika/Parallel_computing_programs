@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
             printf("%d ", marks[i]);
         printf("\n");
 
-
+\
         bubbleSort(marks, n);
 
         printf("\nFinal globally sorted array:\n");
